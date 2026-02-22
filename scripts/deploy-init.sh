@@ -49,12 +49,12 @@ check_docker() {
     fi
     print_success "Docker is installed: $(docker --version)"
     
-    if ! command -v docker-compose &> /dev/null; then
+    if ! command -v docker &> /dev/null; then
         print_error "Docker Compose is not installed"
         echo "Please install Docker Compose: https://docs.docker.com/compose/install/"
         exit 1
     fi
-    print_success "Docker Compose is installed: $(docker-compose --version)"
+    print_success "Docker Compose is installed: $(docker compose version)"
 }
 
 # Setup environment
@@ -97,11 +97,11 @@ build_images() {
     print_header "Building Docker Images"
     
     print_info "Building backend image..."
-    docker-compose -f docker-compose.prod.init.yml build backend
+    docker compose -f docker-compose.prod.init.yml build backend
     print_success "Backend image built"
     
     print_info "Building frontend image..."
-    docker-compose -f docker-compose.prod.init.yml build frontend
+    docker compose -f docker-compose.prod.init.yml build frontend
     print_success "Frontend image built"
 }
 
@@ -110,7 +110,7 @@ start_services() {
     print_header "Starting Services (HTTP only)"
     
     print_info "Starting backend, frontend, and nginx..."
-    docker-compose -f docker-compose.prod.init.yml up -d
+    docker compose -f docker-compose.prod.init.yml up -d
     
     print_info "Waiting for services to be healthy..."
     sleep 5
@@ -120,7 +120,7 @@ start_services() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker-compose -f docker-compose.prod.init.yml ps | grep -q "healthy"; then
+        if docker compose -f docker-compose.prod.init.yml ps | grep -q "healthy"; then
             print_success "Services are running"
             break
         else
@@ -159,14 +159,14 @@ test_http() {
 # Display container status
 show_status() {
     print_header "Container Status"
-    docker-compose -f docker-compose.prod.init.yml ps
+    docker compose -f docker-compose.prod.init.yml ps
 }
 
 # Display logs
 show_logs() {
     print_header "Recent Logs"
     echo "To view logs, use:"
-    echo "  docker-compose -f docker-compose.prod.init.yml logs -f"
+    echo "  docker compose -f docker-compose.prod.init.yml logs -f"
 }
 
 # Display next steps
@@ -192,10 +192,10 @@ next_steps() {
     echo "  └─ Health check: ./manage-prod.sh health-check"
     echo ""
     echo "Useful Commands:"
-    echo "  View logs:         docker-compose -f docker-compose.prod.init.yml logs -f"
-    echo "  Check containers:  docker-compose -f docker-compose.prod.init.yml ps"
-    echo "  Restart services:  docker-compose -f docker-compose.prod.init.yml restart"
-    echo "  Stop services:     docker-compose -f docker-compose.prod.init.yml down"
+    echo "  View logs:         docker compose -f docker-compose.prod.init.yml logs -f"
+    echo "  Check containers:  docker compose -f docker-compose.prod.init.yml ps"
+    echo "  Restart services:  docker compose -f docker-compose.prod.init.yml restart"
+    echo "  Stop services:     docker compose -f docker-compose.prod.init.yml down"
     echo ""
 }
 

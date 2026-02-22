@@ -58,7 +58,7 @@ load_env() {
 stop_services() {
     print_header "Stopping Initial Deployment"
     print_info "Stopping HTTP-only services..."
-    docker-compose -f docker-compose.prod.init.yml down
+    docker compose -f docker-compose.prod.init.yml down
     print_success "Services stopped"
 }
 
@@ -89,7 +89,7 @@ obtain_certificate() {
     
     # Start services with certbot
     print_info "Starting services with Certbot..."
-    docker-compose -f docker-compose.prod.ssl.yml up -d
+    docker compose -f docker-compose.prod.ssl.yml up -d
     
     # Wait for Nginx to be ready (before certbot runs)
     print_info "Waiting for Nginx to be ready..."
@@ -98,7 +98,7 @@ obtain_certificate() {
     # Run certbot to obtain certificate
     print_info "Requesting SSL certificate..."
     
-    docker-compose -f docker-compose.prod.ssl.yml run --rm certbot \
+    docker compose -f docker-compose.prod.ssl.yml run --rm certbot \
         certbot certonly \
         --webroot \
         --webroot-path=/var/www/certbot \
@@ -176,7 +176,7 @@ setup_renewal() {
     # Create renewal script
     cat > ./scripts/renew-cert.sh << 'EOF'
 #!/bin/bash
-docker-compose -f docker-compose.prod.ssl.yml exec -T certbot certbot renew --quiet
+docker compose -f docker-compose.prod.ssl.yml exec -T certbot certbot renew --quiet
 EOF
     
     chmod +x ./scripts/renew-cert.sh
@@ -196,7 +196,7 @@ EOF
 # Display container status
 show_status() {
     print_header "Container Status"
-    docker-compose -f docker-compose.prod.ssl.yml ps
+    docker compose -f docker-compose.prod.ssl.yml ps
 }
 
 # Display completion info
@@ -213,11 +213,11 @@ completion_info() {
     echo "  → Auto-renewal: Enabled (30 days before expiry)"
     echo ""
     echo "Useful Commands:"
-    echo "  View logs:              docker-compose -f docker-compose.prod.ssl.yml logs -f"
+    echo "  View logs:              docker compose -f docker-compose.prod.ssl.yml logs -f"
     echo "  Check cert expiry:      ./manage-prod.sh cert-info"
     echo "  Renew certificate:      ./manage-prod.sh cert-renew"
     echo "  Check service health:   ./manage-prod.sh health-check"
-    echo "  View service status:    docker-compose -f docker-compose.prod.ssl.yml ps"
+    echo "  View service status:    docker compose -f docker-compose.prod.ssl.yml ps"
     echo ""
     echo "Next Steps:"
     echo "  1. Test your website: https://${DOMAIN}"

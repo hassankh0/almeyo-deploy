@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  backend:
+    image: almeyo-backend:latest
+    container_name: almeyo-backend
+    build:
+      context: ../almeyo-backend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data
+      LOG_PATH: /app/logs
+      CORS_ORIGIN: http://localhost
+      PORT: 3000
+    volumes:
+      - backend_data:/app/data
+      - backend_logs:/app/logs
+    expose:
+      - "3000"
+    networks:
+      - almeyo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    image: almeyo-frontend:latest
+    container_name: almeyo-frontend
+    build:
+      context: ../almeyo-frontend
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    networks:
+      - almeyo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: almeyo-nginx
+    volumes:
+      - ./nginx/nginx.conf.init:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d.init:/etc/nginx/conf.d:ro
+    ports:
+      - "80:80"
+    networks:
+      - almeyo-network
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  almeyo-network:
+    driver: bridge
+
+volumes:
+  backend_data:
+  backend_logs:

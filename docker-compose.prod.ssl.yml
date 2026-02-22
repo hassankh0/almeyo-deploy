@@ -15,8 +15,8 @@ services:
       CORS_ORIGIN: https://${DOMAIN}
       PORT: 3000
     volumes:
-      - backend_data:/app/data
-      - backend_logs:/app/logs
+      - ../almeyo-backend/data:/app/data
+      - ../almeyo-backend/logs:/app/logs
     expose:
       - "3000"
     networks:

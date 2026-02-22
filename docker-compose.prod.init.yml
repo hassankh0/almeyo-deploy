@@ -10,7 +10,7 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_PATH: /app/data
+      DATABASE_PATH: /app/data/almeyo.db
       LOG_PATH: /app/logs
       CORS_ORIGIN: http://localhost
       PORT: 3000

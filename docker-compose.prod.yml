@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -22,8 +20,6 @@ services:
       SMTP_FROM: ${SMTP_FROM:-noreply@almeyo.com}
     expose:
       - "3000"
-    depends_on:
-      - nginx
     volumes:
       - backend-data:/app/data
       - backend-logs:/app/logs

@@ -40,8 +40,6 @@ services:
     build:
       context: ../almeyo-frontend
       dockerfile: Dockerfile
-    expose:
-      - "80"
     networks:
       - almeyo-network
     restart: unless-stopped

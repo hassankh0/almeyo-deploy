@@ -7,35 +7,33 @@
 # SSL Deployment (after DNS ready)
 ./scripts/deploy-ssl.sh
 
-# Daily Management
-./scripts/manage-prod.sh status           # Show container status
-./scripts/manage-prod.sh logs             # View all logs
-./scripts/manage-prod.sh logs backend 50  # View backend logs (last 50 lines)
-./scripts/manage-prod.sh health-check     # Test all services
-./scripts/manage-prod.sh restart          # Restart all services
-./scripts/manage-prod.sh restart nginx    # Restart nginx only
+# Docker Compose Commands
 
-# Certificate Management
-./scripts/manage-prod.sh cert-info        # Show certificate expiry
-./scripts/manage-prod.sh cert-renew       # Manually renew certificate
+# Check container status
+docker compose -f docker-compose.prod.init.yml ps     # HTTP deployment
+docker compose -f docker-compose.prod.ssl.yml ps      # HTTPS deployment
 
-# Backup & Restore
-./scripts/manage-prod.sh backup           # Create backup
-./scripts/manage-prod.sh restore backups/almeyo_backup_YYYYMMDD_HHMMSS.tar.gz
+# View logs
+docker compose -f docker-compose.prod.init.yml logs -f               # All services
+docker compose -f docker-compose.prod.init.yml logs -f backend       # Backend only
+docker compose -f docker-compose.prod.init.yml logs -f nginx         # Nginx only
 
-# Updates
-./scripts/manage-prod.sh update           # Update code and rebuild
+# Restart services
+docker compose -f docker-compose.prod.init.yml restart               # Restart all
+docker compose -f docker-compose.prod.init.yml restart backend nginx # Restart specific
 
-# Manual Docker Compose Commands
-# Test HTTP deployment
-docker-compose -f docker-compose.prod.init.yml ps
-docker-compose -f docker-compose.prod.init.yml logs -f
+# Stop/Start services
+docker compose -f docker-compose.prod.init.yml down                  # Stop all services
+docker compose -f docker-compose.prod.init.yml up -d                 # Start all services
 
-# Test HTTPS deployment
-docker-compose -f docker-compose.prod.ssl.yml ps
-docker-compose -f docker-compose.prod.ssl.yml logs -f nginx
+# Health checks
+docker compose -f docker-compose.prod.init.yml ps | grep -i healthy  # Show healthy services
 
-# Stop all services
-./scripts/manage-prod.sh stop
-# or
-docker-compose -f docker-compose.prod.ssl.yml down
+# View certificate info (after SSL deployment)
+docker compose -f docker-compose.prod.ssl.yml exec certbot certbot certificates
+
+# Manual certificate renewal (after SSL deployment)
+docker compose -f docker-compose.prod.ssl.yml exec certbot certbot renew
+
+# View detailed logs
+docker compose -f docker-compose.prod.init.yml logs --tail=100 backend  # Last 100 lines

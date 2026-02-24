@@ -19,6 +19,7 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM:-noreply@almeyo.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@almeyo.com}
     volumes:
       - backend-data:/app/data
       - backend-logs:/app/logs

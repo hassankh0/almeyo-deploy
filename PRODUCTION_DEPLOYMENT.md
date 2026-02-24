@@ -202,7 +202,240 @@ docker compose -f docker-compose.prod.yml restart nginx
   -p 80:80 \
   certbot/certbot \
   renew --quiet && \
-  docker compose -f /path/to/docker-compose.prod.yml restart nginx
+  docker compose -f /almeyo/almeyo-deploy/docker-compose.prod.yml restart nginx
+```
+
+## Database Management
+
+### Using the Seed Script
+
+The backend includes a seed script that populates the database with initial menu items and test data. This is useful for new deployments or testing.
+
+#### Running the Seed Script
+
+**In Development:**
+```bash
+cd ../almeyo-backend
+npm run seed
+```
+
+**In Production (via Docker):**
+```bash
+# Execute seed script in the running backend container
+docker compose exec backend npm run seed
+```
+
+**Using Docker Directly:**
+```bash
+docker run --rm \
+  -v almeyo_backend-data:/app/data \
+  almeyo-backend:latest \
+  npm run seed
+```
+
+#### What the Seed Script Does
+
+- Creates database schema (if not exists):
+  - `menu_items` - Restaurant menu with categories and pricing
+  - `reservations` - Customer reservations
+  - `orders` - Customer orders
+  
+- Seeds the following menu categories:
+  - Nos Classiques (classic dishes)
+  - Nos Salades (salads)
+  - Entrée Froide (cold appetizers)
+  - Entrée Chaude (hot appetizers)
+  - Assiettes (Lebanese specialty plates)
+  - Plancha (grilled items)
+  - Desserts
+
+- Includes 100+ menu items with prices, descriptions, and images
+
+### Database Structure
+
+#### Tables
+
+**menu_items**
+- `id` - Primary key
+- `name` - Dish name (UNIQUE)
+- `description` - Item description
+- `price` - Menu price in euros
+- `category` - Menu category
+- `image_url` - Image path (e.g., `/images/menu/item.jpg`)
+- `is_available` - Availability status (true/false)
+- `created_at` / `updated_at` - Timestamps
+
+**reservations**
+- `id` - Primary key
+- `customer_name` - Customer name
+- `customer_email` - Customer email
+- `customer_phone` - Contact phone
+- `reservation_date` - Reservation date/time
+- `party_size` - Number of guests
+- `special_requests` - Special requests/notes
+- `status` - Status (pending/confirmed/cancelled)
+- `created_at` / `updated_at` - Timestamps
+
+**orders**
+- `id` - Primary key
+- `customer_name` - Customer name
+- `customer_email` - Customer email
+- `customer_phone` - Contact phone
+- `items` - JSON array of ordered items
+- `total_amount` - Total order amount
+- `status` - Status (pending/preparing/ready/delivered)
+- `notes` - Order notes
+- `created_at` / `updated_at` - Timestamps
+
+### Managing Database Data
+
+#### Backup Database
+
+**Backup to local filesystem:**
+```bash
+# Create backup directory
+mkdir -p ./backups
+
+# Backup the database file
+docker cp almeyo-backend:/app/data/almeyo.db ./backups/almeyo.db.$(date +%Y%m%d_%H%M%S)
+
+# Backup all data
+docker cp almeyo-backend:/app/data ./backups/data_$(date +%Y%m%d_%H%M%S)
+```
+
+**Using volume inspection:**
+```bash
+# List all Almeyo volumes
+docker volume ls | grep almeyo
+
+# Inspect volume data
+docker run --rm -v almeyo_backend-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/database.tar.gz /data
+```
+
+#### Export Data
+
+**Export menu items as JSON:**
+```bash
+docker compose exec backend node -e "
+  const sqlite3 = require('sqlite3');
+  const db = new sqlite3.Database('/app/data/almeyo.db');
+  
+  db.all('SELECT * FROM menu_items ORDER BY category', (err, rows) => {
+    console.log(JSON.stringify(rows, null, 2));
+    db.close();
+  });
+"
+```
+
+**Export reservations:**
+```bash
+docker compose exec backend node -e "
+  const sqlite3 = require('sqlite3');
+  const db = new sqlite3.Database('/app/data/almeyo.db');
+  
+  db.all('SELECT * FROM reservations ORDER BY reservation_date DESC', (err, rows) => {
+    console.log(JSON.stringify(rows, null, 2));
+    db.close();
+  });
+"
+```
+
+**Export orders:**
+```bash
+docker compose exec backend node -e "
+  const sqlite3 = require('sqlite3');
+  const db = new sqlite3.Database('/app/data/almeyo.db');
+  
+  db.all('SELECT * FROM orders ORDER BY created_at DESC', (err, rows) => {
+    console.log(JSON.stringify(rows, null, 2));
+    db.close();
+  });
+"
+```
+
+#### Reset Database
+
+**Complete reset (deletes all data):**
+```bash
+# Stop services
+docker compose down
+
+# Remove volume
+docker volume rm almeyo_backend-data
+
+# Restart services (new empty database will be created)
+docker compose up -d backend
+
+# Seed with initial data
+docker compose exec backend npm run seed
+```
+
+**Partial reset (keep structure, clear data):**
+```bash
+docker compose exec backend sqlite3 /app/data/almeyo.db << EOF
+DELETE FROM orders;
+DELETE FROM reservations;
+VACUUM;
+EOF
+```
+
+#### Restore from Backup
+
+**Restore database file:**
+```bash
+# Stop services
+docker compose down
+
+# Restore volume from backup
+docker run --rm \
+  -v almeyo_backend-data:/app/data \
+  -v $(pwd)/backups:/backup \
+  alpine tar xzf /backup/database.tar.gz -C /
+
+# Restart services
+docker compose up -d
+```
+
+**Restore and verify:**
+```bash
+# Copy backup to container
+docker cp ./backups/almeyo.db.backup almeyo-backend:/app/data/almeyo.db
+
+# Verify database integrity
+docker compose exec backend sqlite3 /app/data/almeyo.db "PRAGMA integrity_check;"
+
+# Restart service
+docker compose restart backend
+```
+
+#### Query Database Directly
+
+**Access SQLite CLI:**
+```bash
+docker compose exec backend sqlite3 /app/data/almeyo.db
+```
+
+**Common queries:**
+```sql
+-- Count items in each table
+SELECT 'menu_items' as table_name, COUNT(*) as count FROM menu_items
+UNION
+SELECT 'reservations', COUNT(*) FROM reservations
+UNION
+SELECT 'orders', COUNT(*) FROM orders;
+
+-- List menu items by category
+SELECT category, COUNT(*) as count FROM menu_items GROUP BY category;
+
+-- Recent reservations
+SELECT * FROM reservations ORDER BY created_at DESC LIMIT 10;
+
+-- Recent orders
+SELECT * FROM orders ORDER BY created_at DESC LIMIT 10;
+
+-- Total revenue
+SELECT SUM(total_amount) as total_revenue FROM orders WHERE status = 'completed';
 ```
 
 ## Data Persistence

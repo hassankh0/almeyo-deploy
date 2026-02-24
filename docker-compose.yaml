@@ -12,6 +12,8 @@ services:
       PORT: 3000
       HOST: 0.0.0.0
       DATABASE_PATH: /app/data/almeyo.db
+      LOG_PATH: /app/logs
+      LOG_LEVEL: debug
       CORS_ORIGIN: http://localhost:8080
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}

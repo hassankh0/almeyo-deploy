@@ -23,23 +23,43 @@ This guide explains how to deploy Almeyo in production using Docker Compose, fol
 
 ### 1. Prepare Environment Configuration
 
-Create production environment file from template:
+Create `.env` file in the `almeyo-deploy` directory (same location as `docker-compose.prod.yml`):
 
 ```bash
-cp .env.prod.example .env.prod
-```
+# Create from template or manually
+cat > .env << 'EOF'
+# Domain configuration
+DOMAIN=almeyo.com
 
-Edit `.env.prod` and fill in required values:
-
-```env
-DOMAIN=your-domain.com
-CERT_EMAIL=your-email@example.com
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=your-email@gmail.com
+# SMTP Configuration (Hostinger example)
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your-email@almeyo.com
 SMTP_PASS=your-app-password
+
+# Email settings
+SMTP_FROM=noreply@almeyo.com
+ADMIN_EMAIL=your-admin-email@example.com
+
+# Database paths
+DATABASE_PATH=/app/data/almeyo.db
+
+# Logging configuration
+LOG_PATH=/app/logs
+LOG_LEVEL=info
+
+# SSL/Certbot configuration
+CERT_EMAIL=your-email@example.com
+EOF
 ```
 
-**Important**: Keep `.env.prod` secure and never commit it to git.
+**Important Notes:**
+- Keep `.env` secure and **never commit it to git**
+- The `.env` file must be in the `almeyo-deploy` directory (same level as `docker-compose.prod.yml`)
+- Docker Compose automatically loads variables from `.env`
+- Replace placeholders with your actual configuration
+- For development, you can also use `docker-compose.yaml` with a `.env.dev` file
 
 ### 2. Build Docker Images
 
@@ -213,6 +233,11 @@ The backend includes a seed script that populates the database with initial menu
 
 #### Running the Seed Script
 
+**Prerequisites:**
+- Services must be fully running and healthy
+- Wait 30-40 seconds after `docker compose up -d` before running seed
+- Check health status: `docker compose ps` (should show "Up (healthy)")
+
 **In Development:**
 ```bash
 cd ../almeyo-backend
@@ -221,16 +246,28 @@ npm run seed
 
 **In Production (via Docker):**
 ```bash
+# Make sure from the almeyo-deploy directory
+cd ~/almeyo/almeyo-deploy
+
 # Execute seed script in the running backend container
-docker compose exec backend npm run seed
+sudo docker compose -f docker-compose.prod.yml exec backend npm run seed
 ```
 
-**Using Docker Directly:**
+**If services are not healthy:**
 ```bash
-docker run --rm \
-  -v almeyo_backend-data:/app/data \
-  almeyo-backend:latest \
-  npm run seed
+# Check service status
+sudo docker compose -f docker-compose.prod.yml ps
+
+# Check backend logs
+sudo docker compose -f docker-compose.prod.yml logs backend
+
+# Check if package.json exists in container
+sudo docker compose -f docker-compose.prod.yml exec backend ls -la /app/
+
+# Rebuild if needed
+sudo docker compose -f docker-compose.prod.yml down
+sudo docker compose -f docker-compose.prod.yml build --no-cache
+sudo docker compose -f docker-compose.prod.yml up -d
 ```
 
 #### What the Seed Script Does
@@ -520,7 +557,44 @@ docker network prune
 
 ## Troubleshooting
 
-### Services not starting
+### Seed Script Issues
+
+**Error: "Could not read package.json: ENOENT"**
+
+This means package.json wasn't copied into the container during build.
+
+**Solution:**
+1. Verify `.env` file exists and has correct SMTP variables
+2. Rebuild containers: `sudo docker compose -f docker-compose.prod.yml build --no-cache`
+3. Restart services: `sudo docker compose -f docker-compose.prod.yml up -d`
+4. Wait 40 seconds for health checks
+5. Then run seed: `sudo docker compose -f docker-compose.prod.yml exec backend npm run seed`
+
+**Warning: "SMTP_* variables not set"**
+
+This is just a warning. Docker Compose will use defaults or empty strings. If you want to suppress warnings, ensure all variables are in your `.env` file.
+
+**Check if container has the files:**
+```bash
+sudo docker compose -f docker-compose.prod.yml exec backend ls -la /app/
+# Should show: package.json, src/, node_modules, public/ folders
+```
+
+### Environment Variables Issues
+
+**Error: Commands not executing properly**
+
+Ensure:
+1. `.env` file is in `almeyo-deploy` directory (same level as `docker-compose.prod.yml`)
+2. `.env` file has proper line endings (not just CRLF on Windows)
+3. No extra spaces around `=` signs in variable assignments
+
+**Check loaded environment:**
+```bash
+sudo docker compose -f docker-compose.prod.yml exec backend env | grep SMTP
+```
+
+### Services Not Starting
 
 Check logs:
 
